@@ -1,5 +1,5 @@
-lootmoney_multiplier = 0.2 -- change if you want less or more money per corpse. 1 = default, 2 = double, 0.5 = half.
-lootmoney_stash = false -- should it create random stashs?
+lootmoney_multiplier = 1 -- change if you want less or more money per corpse. 1 = default, 2 = double, 0.5 = half.
+lootmoney_stash = false -- should it create random stashes?
 
 function lootmoney(npc)
 	if npc:character_community() ~= "monolith" and npc:money() < 10000 then
