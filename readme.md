@@ -12,7 +12,7 @@ Open the gamedata/configs/lootmoney_cfg.ltx and edit the variables:
 	lootmoney_stash = true ; should it create random stashs?
 	lootmoney_stashchance = 10 ; chance of spawning a random stash. 10 = 10%. Wont work if lootmoney_stash not enabled.
 	lootmoney_message = true ; should it show the found money message?
-	lootmoney_npc_collect = true ; should npcs be able to collet money from dead stalkers? you wont be able to collect from this bodies anymore.
+	lootmoney_npc_collect = true ; should npcs be able to collet money from dead stalkers? you wont be able to collect from those bodies anymore.
 	lootmoney_debug = false ; should it show you debug messages? (for dev only, it will fill your pda with debug informations)
 	```
 How to install: 
