@@ -128,7 +128,7 @@ function set_npc_random_index(npc)
 	if util_is_key_in_array(npc, npc_random_indexes) then return end
 	-- clear table if too long
 	if tableSize > 25 then -- if table longer than
-		alun_utils.print_table(npc_random_indexes, "List of stalkers", false)
+		--alun_utils.print_table(npc_random_indexes, "List of stalkers", false)
 		tableSize = 0
 		npc_random_indexes = {}
 		debug_sc("Trash Can : The table npc_random_indexes is now empty again!")
