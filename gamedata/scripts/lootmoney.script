@@ -1,6 +1,8 @@
+-- loading ini configs
 local config_ini = ini_file("lootmoney_cfg.ltx")
 local lootmoney_multiplier = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_multiplier", "float")
 local lootmoney_dropchance = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_dropchance", "float")
+local lootmoney_getstalkermoney = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_getstalkermoney", "bool")
 local lootmoney_stash = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_stash", "bool")
 local lootmoney_stashchance = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_stashchance", "float")
 local lootmoney_message = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_message", "bool")
@@ -9,12 +11,35 @@ local lootmoney_debug = alun_utils.read_from_ini(config_ini,"global_config", "lo
 
 local npc_random_indexes = {} -- where we store the data. { npc name = random value }. so npcs and player share the same random chance of getting money.
 local tableSize = 0
+local mnytb = {}
+
+function on_game_start()
+	RegisterScriptCallback("on_game_load",on_game_load)
+end
+
+function on_game_load()
+	debug_sc(
+		"Version %c[255,255,0,0] 0.0.1 %c[default] Loaded and Running...\\n"..debug_vars()
+	) -- debug
+	--ranks ini configs
+	mnytb = {
+		novice = { min = explode_config_minmax("novice",1), max = explode_config_minmax("novice",2) },
+		trainee = { min = explode_config_minmax("trainee",1), max = explode_config_minmax("trainee",2) },
+		experienced = { min = explode_config_minmax("experienced",1), max = explode_config_minmax("experienced",2) },
+		professional = { min = explode_config_minmax("professional",1), max = explode_config_minmax("professional",2) },
+		veteran = { min = explode_config_minmax("veteran",1), max = explode_config_minmax("veteran",2) },
+		expert = { min = explode_config_minmax("expert",1), max = explode_config_minmax("expert",2) },
+		master = { min = explode_config_minmax("master",1), max = explode_config_minmax("master",2) },
+		legend = { min = explode_config_minmax("legend",1), max = explode_config_minmax("legend",2) }
+	}
+end
 
 function lootmoney(npc)
-	if npc:character_community() ~= "monolith" and npc:money() < 10000 then
+	if npc:character_community() ~= "monolith" and npc:money() < 100000 then
 		local actor = db.actor
 		local money = npc:money()
 		if money ~= nil and money > 0 then
+			debug_sc(game.translate_string(npc:money()))
  			local charname = npc:character_name()
 			set_npc_random_index(charname) -- set npc random index for the dropchance system (based on the npc name do differ npcs)
 			local rnd_value = get_npc_random_index(charname) or 101 -- get the random value from table using the npc table. mess
@@ -29,21 +54,22 @@ function lootmoney(npc)
 			local npc_rank
 			npc_rank = ranks.get_obj_rank_name(npc)
 			if npc_rank ~= nil then
-				if 	 npc_rank == "novice" and deadmoney >=400 then deadmoney=math.random(25,400)    
-				elseif npc_rank == "trainee" and deadmoney >=500 then deadmoney=math.random(50,400)  
-				elseif npc_rank == "experienced" and deadmoney >=550 then deadmoney=math.random(200,500)  
-				elseif npc_rank == "professional" and deadmoney >=600 then deadmoney=math.random(400,600) 
-				elseif npc_rank == "veteran" and deadmoney >=650 then deadmoney=math.random(400,700) 
-				elseif npc_rank == "expert" and deadmoney >=700 then deadmoney=math.random(500,800)  
-				elseif npc_rank == "master" and deadmoney >=750 then deadmoney=math.random(500,900)  
-				elseif npc_rank == "legend" and deadmoney >=800 then deadmoney=math.random(600,1000)  
+				if 	 npc_rank == "novice" and deadmoney >=1 then deadmoney=math.random(mnytb["novice"]["min"],mnytb["novice"]["max"])    
+				elseif npc_rank == "trainee" and deadmoney >=1 then deadmoney=math.random(mnytb["trainee"]["min"],mnytb["trainee"]["max"])  
+				elseif npc_rank == "experienced" and deadmoney >=1 then deadmoney=math.random(mnytb["experienced"]["min"],mnytb["experienced"]["max"])  
+				elseif npc_rank == "professional" and deadmoney >=1 then deadmoney=math.random(mnytb["professional"]["min"],mnytb["professional"]["max"]) 
+				elseif npc_rank == "veteran" and deadmoney >=1 then deadmoney=math.random(mnytb["veteran"]["min"],mnytb["veteran"]["max"]) 
+				elseif npc_rank == "expert" and deadmoney >=1 then deadmoney=math.random(mnytb["expert"]["min"],mnytb["expert"]["max"])  
+				elseif npc_rank == "master" and deadmoney >=1 then deadmoney=math.random(mnytb["master"]["min"],mnytb["master"]["max"])  
+				elseif npc_rank == "legend" and deadmoney >=1 then deadmoney=math.random(mnytb["legend"]["min"],mnytb["legend"]["max"])  
 			  end
 			end
+			if lootmoney_getstalkermoney then deadmoney = money else deadmoney = deadmoney * lootmoney_multiplier end
 			local news_caption = "Dead stalker: "..charname
-			local news_text = "Found money: %c[255,255,0,0]"..game.translate_string(math.floor(deadmoney * lootmoney_multiplier)).."%c[default] rub."
+			local news_text = "Found money: %c[255,255,0,0]"..game.translate_string(math.floor(deadmoney)).."%c[default] rub."
 			--xr_sound.set_sound_play(actor:id(), "pda_news")
 			if lootmoney_message then actor:give_game_news(news_caption, news_text, "ui_iconsTotal_found_money", 0, 10000) end
-			actor:give_money(deadmoney * lootmoney_multiplier)
+			actor:give_money(deadmoney)
 			-- game_stats.money_quest_update(deadmoney) 
 			npc:give_money(-money)
 			-- game_stats.money_quest_update(-money)
@@ -64,7 +90,7 @@ function lootmoney_effect(npc,corpse_npc)
 
 	if corpse_npc:character_community() ~= "monolith" and corpse_npc:money() < 10000 then
 		local num=corpse_npc:money() 
-		if num and num >0 then
+		if num and num > 0 then
 			debug_sc(
 				strformat("NPC is just collecting money, NPC: = %s , Dead NPC: %s", charname, corpse_npc:character_name())
 			) 
@@ -72,16 +98,17 @@ function lootmoney_effect(npc,corpse_npc)
 			local gi_rank
 			gi_rank = ranks.get_obj_rank_name(corpse_npc)
 			if gi_rank ~= nil then
-				if gi_rank == "novice" and deadmoney >=100 then deadmoney=math.random(25,400)    
-				elseif gi_rank == "trainee" and deadmoney >=200 then deadmoney=math.random(50,400)  
-				elseif gi_rank == "experienced" and deadmoney >=250 then deadmoney=math.random(200,500)  
-				elseif gi_rank == "professional" and deadmoney >=300 then deadmoney=math.random(400,600) 
-				elseif gi_rank == "veteran" and deadmoney >=350 then deadmoney=math.random(400,700) 
-				elseif gi_rank == "expert" and deadmoney >=400 then deadmoney=math.random(500,800)  
-				elseif gi_rank == "master" and deadmoney >=450 then deadmoney=math.random(500,900)  
-				elseif gi_rank == "legend" and deadmoney >=500 then deadmoney=math.random(600,1000)  
+				if gi_rank == "novice" and deadmoney >=1 then deadmoney=math.random(mnytb["novice"]["min"],mnytb["novice"]["max"])    
+				elseif gi_rank == "trainee" and deadmoney >=1 then deadmoney=math.random(mnytb["trainee"]["min"],mnytb["trainee"]["max"])  
+				elseif gi_rank == "experienced" and deadmoney >=1 then deadmoney=math.random(mnytb["experienced"]["min"],mnytb["experienced"]["max"])  
+				elseif gi_rank == "professional" and deadmoney >=1 then deadmoney=math.random(mnytb["professional"]["min"],mnytb["professional"]["max"]) 
+				elseif gi_rank == "veteran" and deadmoney >=1 then deadmoney=math.random(mnytb["veteran"]["min"],mnytb["veteran"]["max"]) 
+				elseif gi_rank == "expert" and deadmoney >=1 then deadmoney=math.random(mnytb["expert"]["min"],mnytb["expert"]["max"])  
+				elseif gi_rank == "master" and deadmoney >=1 then deadmoney=math.random(mnytb["master"]["min"],mnytb["master"]["max"])  
+				elseif gi_rank == "legend" and deadmoney >=1 then deadmoney=math.random(mnytb["legend"]["min"],mnytb["legend"]["max"])  
 				end
 			end
+			if lootmoney_getstalkermoney then deadmoney = num else deadmoney = deadmoney * lootmoney_multiplier end
 			npc:give_money(deadmoney) 
 			-- game_stats.money_quest_update(deadmoney) 
 			corpse_npc:give_money(-num) 
@@ -93,7 +120,7 @@ end
 function debug_sc(text, icon) -- debug function
 	if not lootmoney_debug then return end
 	--db.actor:give_game_news("Outfit Marauder >> Debug Message", text, "", 0, 50000) -- debug message on screen
-	news_manager.send_tip(db.actor, "Loot Money >> Debug Message" .. "\\n" .. text, nil, "tourist", 50000)
+	news_manager.send_tip(db.actor, "Loot Money >> Debug Message" .. "\\n" .. text, nil, "tourist", 10000)
 	alun_utils.printf(("Loot Money >> Debug Message" .. "\\n" .. text))
 end
 
@@ -122,4 +149,20 @@ function util_is_key_in_array(val, array)
 		if k == val then is = true end
 	end
 	return is, k
+end
+
+function explode_config_minmax(rank, t)
+	local ini_string = alun_utils.read_from_ini(config_ini,"rank_money", rank, "string")
+	local v = alun_utils.str_explode(ini_string,",", false)
+	if t == 1 then
+		return tonumber(v[1])
+	elseif t == 2 then
+		return tonumber(v[2])
+	else
+		return 0
+	end
+end
+
+function debug_vars() -- return config and extra vars as strings
+	return strformat( "Config: Dropchance: %s%, Money Multiplier: %sx, Get Stalker Money: %s, Stash: %s, Stash Chance: %s%, Message: %s, Npc Collect: %s", lootmoney_dropchance, lootmoney_multiplier, lootmoney_getstalkermoney, lootmoney_stash, lootmoney_stashchance, lootmoney_message, lootmoney_npc_collect )
 end
