@@ -1,11 +1,30 @@
-lootmoney_multiplier = 1 -- change if you want less or more money per corpse. 1 = default, 2 = double, 0.5 = half.
-lootmoney_stash = false -- should it create random stashes?
+local config_ini = ini_file("lootmoney_cfg.ltx")
+local lootmoney_multiplier = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_multiplier", "float")
+local lootmoney_dropchance = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_dropchance", "float")
+local lootmoney_stash = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_stash", "bool")
+local lootmoney_stashchance = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_stashchance", "float")
+local lootmoney_message = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_message", "bool")
+local lootmoney_npc_collect = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_npc_collect", "bool")
+local lootmoney_debug = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_debug", "bool")
+
+local npc_random_indexes = {} -- where we store the data. { npc name = random value }. so npcs and player share the same random chance of getting money.
+local tableSize = 0
 
 function lootmoney(npc)
 	if npc:character_community() ~= "monolith" and npc:money() < 10000 then
 		local actor = db.actor
 		local money = npc:money()
 		if money ~= nil and money > 0 then
+ 			local charname = npc:character_name()
+			set_npc_random_index(charname) -- set npc random index for the dropchance system (based on the npc name do differ npcs)
+			local rnd_value = get_npc_random_index(charname) or 101 -- get the random value from table using the npc table. mess
+			if rnd_value > lootmoney_dropchance then
+				debug_sc(strformat("You are not collecting money. Chance: %s Stalker: %s", rnd_value, charname))  
+				return
+			end -- if drop chance higher than random value between 1,99 exit
+			debug_sc(
+				strformat("You are collecting money from NPC. Chance: %s Stalker: %s", rnd_value, charname)
+			) 
 			local deadmoney = money
 			local npc_rank
 			npc_rank = ranks.get_obj_rank_name(npc)
@@ -20,25 +39,35 @@ function lootmoney(npc)
 				elseif npc_rank == "legend" and deadmoney >=800 then deadmoney=math.random(600,1000)  
 			  end
 			end
-			local news_caption = "Dead stalker: "..npc:character_name()
+			local news_caption = "Dead stalker: "..charname
 			local news_text = "Found money: %c[255,255,0,0]"..game.translate_string(math.floor(deadmoney * lootmoney_multiplier)).."%c[default] rub."
 			--xr_sound.set_sound_play(actor:id(), "pda_news")
-			actor:give_game_news(news_caption, news_text, "ui_iconsTotal_found_money", 0, 10000)
+			if lootmoney_message then actor:give_game_news(news_caption, news_text, "ui_iconsTotal_found_money", 0, 10000) end
 			actor:give_money(deadmoney * lootmoney_multiplier)
 			-- game_stats.money_quest_update(deadmoney) 
 			npc:give_money(-money)
 			-- game_stats.money_quest_update(-money)
-			if (math.random(1,100) >= 90 and lootmoney_stash) then
-				coc_treasure_manager.create_random_stash(nil,npc:character_name().."'s stash")
+			if (math.random(1,99) < lootmoney_stashchance and lootmoney_stash) then
+				coc_treasure_manager.create_random_stash(nil,charname.."'s stash")
 			end
 		end
 	end
 end
 
 function lootmoney_effect(npc,corpse_npc)
+	if not lootmoney_npc_collect then return end -- if not npc collect enabled then end (npc wont collect money, only loot)
+
+	local charname = npc:character_name()
+	set_npc_random_index(charname) -- set npc random index for the dropchance system (based on the npc name do differ npcs)
+	local rnd_value = get_npc_random_index(charname) or 0 -- get the random value from table using the npc table. mess
+	if rnd_value > lootmoney_dropchance then return end -- if drop chance higher than random value between 1,99 exit
+
 	if corpse_npc:character_community() ~= "monolith" and corpse_npc:money() < 10000 then
 		local num=corpse_npc:money() 
-		if num and num >0 then 
+		if num and num >0 then
+			debug_sc(
+				strformat("NPC is just collecting money, NPC: = %s , Dead NPC: %s", charname, corpse_npc:character_name())
+			) 
 			local deadmoney = num
 			local gi_rank
 			gi_rank = ranks.get_obj_rank_name(corpse_npc)
@@ -59,4 +88,38 @@ function lootmoney_effect(npc,corpse_npc)
 			-- game_stats.money_quest_update(-num) 
 		end
 	end
+end
+
+function debug_sc(text, icon) -- debug function
+	if not lootmoney_debug then return end
+	--db.actor:give_game_news("Outfit Marauder >> Debug Message", text, "", 0, 50000) -- debug message on screen
+	news_manager.send_tip(db.actor, "Loot Money >> Debug Message" .. "\\n" .. text, nil, "tourist", 50000)
+	alun_utils.printf(("Loot Money >> Debug Message" .. "\\n" .. text))
+end
+
+function set_npc_random_index(npc)
+	if util_is_key_in_array(npc, npc_random_indexes) then return end
+	-- clear table if too long
+	if tableSize > 25 then -- if table longer than
+		alun_utils.print_table(npc_random_indexes, "List of stalkers", false)
+		tableSize = 0
+		npc_random_indexes = {}
+		debug_sc("Trash Can : The table npc_random_indexes is now empty again!")
+	end
+	npc_random_indexes[npc] = math.random(1,99)
+	tableSize = tableSize + 1
+end
+
+function get_npc_random_index(npc)
+	if not util_is_key_in_array(npc, npc_random_indexes) then return nil end
+	return npc_random_indexes[npc]
+end
+
+function util_is_key_in_array(val, array)
+	if val == nil then return true end
+	local is = false
+	for k, v in pairs(array) do
+		if k == val then is = true end
+	end
+	return is, k
 end
