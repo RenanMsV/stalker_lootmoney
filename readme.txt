@@ -4,7 +4,7 @@ Fully customizable! You can change ammount of money, dropchance and more.
 
 How to config:
 
-Open the gamedata/scripts/lootmoney.script and edit the variables:
+Open the gamedata/configs/lootmoney_cfg.ltx and edit the variables:
 
 	```
 	lootmoney_dropchance = 100 ; the chance of the npc to drop money. 100 = 100% 
