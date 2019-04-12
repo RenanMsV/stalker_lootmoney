@@ -11,10 +11,10 @@ Open the gamedata/configs/lootmoney_cfg.ltx and edit the variables:
 		lootmoney_dropchance = 100 ; the chance of the npc to drop money. 100 = 100% 
 		lootmoney_multiplier = 1 ; change if you want less or more money per corpse. 1 = default (~ 500 RU), 2 = double, 0.5 = half.
 		lootmoney_getstalkermoney = false ; instead of a random money value, you get the ammount of money that the dead npc had.
-		lootmoney_stash = true ; should it create random stashs?
+		lootmoney_stash = true ; should it create random stashes?
 		lootmoney_stashchance = 10 ; chance of spawning a random stash. 10 = 10%. Wont work if lootmoney_stash not enabled.
 		lootmoney_message = true ; should it show the found money message?
-		lootmoney_npc_collect = true ; should npcs be able to collet money from dead stalkers? you wont be able to collect from this bodies anymore.
+		lootmoney_npc_collect = true ; should npcs be able to collet money from dead stalkers? you wont be able to collect from these bodies anymore.
 		lootmoney_debug = true ; should it show you debug messages? (for dev only, it will fill your pda with debug informations)
 	[rank_money] ; here you can setup the default ammount of money that you will get per corpse for each rank. (only if lootmoney_getstalkermoney isnt enabled ofc)
 		novice = 25,400 ; rank = min,max. if you want more money either change these values or the lootmoney_multiplier value.
