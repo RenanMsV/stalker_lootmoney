@@ -25,6 +25,12 @@ Open the gamedata/configs/lootmoney_cfg.ltx and edit the variables:
 	expert = 500,800
 	master = 500,900
 	legend = 600,1000
+[locale]
+	current = "eng" ; change current language here [eng, rus, spa, ptbr ...]
+	eng = "Found money:","Dead Stalker:"
+	rus = "Найденные деньги:","Труп:"
+	spa = "Dinero encontrado:","Stalker muerto:"
+	ptbr = "Dinheiro encontrado:","Stalker morto:"
 ```
 How to install: 
 
