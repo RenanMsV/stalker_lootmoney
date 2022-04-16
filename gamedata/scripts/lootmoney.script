@@ -14,10 +14,6 @@ local lootmoney_stashchance = alun_utils.read_from_ini(config_ini, "global_confi
 local lootmoney_message = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_message", "bool")
 local lootmoney_npc_collect = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_npc_collect", "bool")
 local lootmoney_debug = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_debug", "bool")
--- loading locale strings
-local lootmoney_current_locale = alun_utils.read_from_ini(config_ini, "locale", "current", "string"):sub(2, -2) -- remove first and last character of string
-local lootmoney_loc_found_money = "dummy_text"
-local lootmoney_loc_dead_corpse = "dummy_text"
 
 local npc_random_indexes = {} -- where we store the data. { npc name = random value }. so npcs and player share the same random chance of getting money.
 local tableSize = 0
@@ -29,7 +25,7 @@ end
 
 function on_game_load()
 	debug_sc(
-		"Version %c[255,255,0,0] 0.0.1-r2 %c[default] Loaded and Running...\\n"..debug_vars()
+		strformat("Version %c[255,255,0,0] 0.0.1-r2 %c[default] Loaded and Running...\\n%s", debug_vars())
 	) -- debug
 	--ranks ini configs
 	mnytb = {
@@ -42,8 +38,6 @@ function on_game_load()
 		master = { min = explode_config_minmax("master", 1), max = explode_config_minmax("master", 2) },
 		legend = { min = explode_config_minmax("legend", 1), max = explode_config_minmax("legend", 2) }
 	}
-	lootmoney_loc_found_money = explode_config_locale(lootmoney_current_locale, 1)
-	lootmoney_loc_dead_corpse = explode_config_locale(lootmoney_current_locale, 2)
 end
 
 function get_random_money_from_corpse(corpse)
@@ -86,13 +80,13 @@ function lootmoney(npc) -- player character is looting a npc or creature
 	--game_stats.money_quest_update(-npc_money)
 
 	if lootmoney_message then -- send message in PDA
-		local news_caption = lootmoney_loc_dead_corpse .. " " .. npc_name
-		local news_text = lootmoney_loc_found_money .. " %c[255,255,0,0]" .. game.translate_string(math.floor(calculated_money)) .. "%c[default] RU."
+		local news_caption = strformat("%s %s", game.translate_string("st_lootmoney_dead_stalker"), npc_name)
+		local news_text = strformat("%s %c[255,255,0,0]%s%c[default] RU", game.translate_string("st_lootmoney_found_money"), game.translate_string(math.floor(calculated_money)))
 		player_char:give_game_news(news_caption, news_text, "ui_iconsTotal_found_money", 0, 10000)
 		--xr_sound.set_sound_play(player_char:id(), "pda_news")
 	end
 	if (math.random(1, 99) < lootmoney_stashchance and lootmoney_stash) then -- spawn random stash
-		coc_treasure_manager.create_random_stash(nil, npc_name .. "'s stash")
+		coc_treasure_manager.create_random_stash(nil, strformat("%s's stash", npc_name))
 	end
 	debug_sc(
 		strformat("You collected money from NPC. Chance: %s. Stalker: %c[66,167,245,0]%s%c[default]", rnd_value, npc_name)
@@ -129,9 +123,10 @@ end
 
 function debug_sc(text, icon) -- debug function
 	if not lootmoney_debug then return end
-	--db.actor:give_game_news("Outfit Marauder >> Debug Message", text, "", 0, 50000) -- debug message on screen
-	news_manager.send_tip(db.actor, "Loot Money >> Debug Message" .. "\\n" .. text, nil, "tourist", 10000)
-	alun_utils.printf(("Loot Money >> Debug Message" .. "\\n" .. text))
+	--db.actor:give_game_news("Loot Money >> Debug Message", text, "", 0, 50000) -- debug message on screen
+	local formatted_text = strformat("Loot Money >> Debug Message\\n%s", text)
+	news_manager.send_tip(db.actor, formatted_text, nil, "tourist", 10000)
+	alun_utils.printf(formatted_text)
 end
 
 function set_npc_random_index(npc)
@@ -173,16 +168,6 @@ function explode_config_minmax(rank, t)
 	end
 end
 
-function explode_config_locale(locale, t)
-	local ini_string = alun_utils.read_from_ini(config_ini, "locale", locale, "string")
-	local v = alun_utils.str_explode(ini_string, ",", false)
-	if v[1] and v[2] then
-		return v[t]:sub(2, -2)
-	else
-		return ""
-	end
-end
-
 function debug_vars() -- return config and extra vars as strings
-	return strformat( "Config: Dropchance: %s%, Money Multiplier: %sx, Get Stalker Money: %s, Stash: %s, Stash Chance: %s%, Message: %s, Npc Collect: %s, Locale: %s", lootmoney_dropchance, lootmoney_multiplier, lootmoney_getstalkermoney, lootmoney_stash, lootmoney_stashchance, lootmoney_message, lootmoney_npc_collect, lootmoney_current_locale )
+	return strformat("Config: Dropchance: %s%, Money Multiplier: %sx, Get Stalker Money: %s, Stash: %s, Stash Chance: %s%, Message: %s, Npc Collect: %s", lootmoney_dropchance, lootmoney_multiplier, lootmoney_getstalkermoney, lootmoney_stash, lootmoney_stashchance, lootmoney_message, lootmoney_npc_collect)
 end
