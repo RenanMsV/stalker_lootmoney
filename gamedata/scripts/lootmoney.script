@@ -6,14 +6,14 @@
 ]]
 -- loading ini configs
 local config_ini = ini_file("lootmoney_cfg.ltx")
-local lootmoney_multiplier = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_multiplier", "float")
-local lootmoney_dropchance = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_dropchance", "float")
+local lootmoney_multiplier = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_multiplier", "float")
+local lootmoney_dropchance = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_dropchance", "float")
 local lootmoney_getstalkermoney = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_getstalkermoney", "bool")
-local lootmoney_stash = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_stash", "bool")
-local lootmoney_stashchance = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_stashchance", "float")
-local lootmoney_message = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_message", "bool")
-local lootmoney_npc_collect = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_npc_collect", "bool")
-local lootmoney_debug = alun_utils.read_from_ini(config_ini,"global_config", "lootmoney_debug", "bool")
+local lootmoney_stash = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_stash", "bool")
+local lootmoney_stashchance = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_stashchance", "float")
+local lootmoney_message = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_message", "bool")
+local lootmoney_npc_collect = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_npc_collect", "bool")
+local lootmoney_debug = alun_utils.read_from_ini(config_ini, "global_config", "lootmoney_debug", "bool")
 
 local npc_random_indexes = {} -- where we store the data. { npc name = random value }. so npcs and player share the same random chance of getting money.
 local tableSize = 0
@@ -25,7 +25,7 @@ end
 
 function on_game_load()
 	debug_sc(
-		"Version %c[255,255,0,0] 0.0.1-r1 %c[default] Loaded and Running...\\n"..debug_vars()
+		strformat("Version %c[255,255,0,0] 0.0.1-r2 %c[default] Loaded and Running...\\n%s", debug_vars())
 	) -- debug
 	--ranks ini configs
 	mnytb = {
@@ -40,92 +40,93 @@ function on_game_load()
 	}
 end
 
-function get_random_money_from_rank(npc_rank)
-	return math.random(mnytb[npc_rank]["min"], mnytb[npc_rank]["max"])
+function get_random_money_from_corpse(corpse)
+	local corpse_rank = ranks.get_obj_rank_name(corpse)
+	local corpse_money = corpse:money()
+	if not corpse_money then corpse_money = 0 end
+	local result_money = 0 
+	if lootmoney_getstalkermoney then
+		result_money = corpse_money * lootmoney_multiplier
+	else
+		result_money = math.random(mnytb[corpse_rank]["min"], mnytb[corpse_rank]["max"]) * lootmoney_multiplier
+	end
+	return result_money
 end
 
+-- called from xr_motivator.script
 function lootmoney(npc) -- player character is looting a npc or creature
 	local npc_money = npc:money()
-	local npc_faction = npc:character_community()
 	local npc_name = npc:character_name()
 	local npc_rank = ranks.get_obj_rank_name(npc)
 	local player_char = db.actor
-	if --[[(npc_faction ~= "monolith" and npc_money < 100000) and]] npc_money and npc_money > 0 then
-		set_npc_random_index(npc_name) -- set npc random index for the dropchance system (based on the npc name do differ npcs)
-		local rnd_value = get_npc_random_index(npc_name) or 101 -- get the random value from table using the npc table. mess
-		if rnd_value > lootmoney_dropchance then
-			debug_sc(strformat("You are not collecting money. Chance: %s Stalker: %c[66,167,245,0]%s%c[default]", rnd_value, npc_name))
-			npc:give_money(-npc_money) -- makes npc money equal 0 so it cant trigger lootmoney again
-			return
-		end -- if drop chance higher than random value between 1, 99 exit
-		debug_sc(
-			strformat("You are collecting money from NPC. Chance: %s Stalker: %c[66,167,245,0]%s%c[default]", rnd_value, npc_name)
-		)
-		local dead_money = npc_money
-		npc_rank = ranks.get_obj_rank_name(npc)
-		if not npc_rank or dead_money <= 0 then return end
-		dead_money = get_random_money_from_rank(npc_rank)
-		if lootmoney_getstalkermoney then
-			dead_money = npc_money * lootmoney_multiplier
+
+	set_npc_random_index(npc_name) -- set npc random index for the dropchance system (based on the npc name do differ npcs)
+	local rnd_value = get_npc_random_index(npc_name) or 101 -- get the random value from table using the npc table. mess
+	
+	if rnd_value > lootmoney_dropchance or npc_money <= 0 or not npc_rank then
+		if npc_money <= 0 then -- npc have no more money
+			debug_sc(strformat("Money has already been collected. Stalker: %c[66,167,245,0]%s%c[default]", npc_name))
 		else
-			dead_money = dead_money * lootmoney_multiplier
+			debug_sc(strformat("Chance to collect money failed. Chance: %s. Stalker: %c[66,167,245,0]%s%c[default]", rnd_value, npc_name))
 		end
-		local news_caption = "Dead stalker: " .. npc_name
-		local news_text = "Found money: %c[255,255,0,0]" .. game.translate_string(math.floor(dead_money)) .. "%c[default] RU."
+		npc:give_money(-npc_money) -- makes npc money equal 0 so it cant trigger lootmoney again		
+		return
+	end -- if drop chance higher than random value between 1, 99 exit
+
+	local calculated_money = get_random_money_from_corpse(npc)
+	player_char:give_money(calculated_money)
+	--game_stats.money_quest_update(calculated_money) 
+	npc:give_money(-npc_money)
+	--game_stats.money_quest_update(-npc_money)
+
+	if lootmoney_message then -- send message in PDA
+		local news_caption = strformat("%s %s", game.translate_string("st_lootmoney_dead_stalker"), npc_name)
+		local news_text = strformat("%s %c[255,255,0,0]%s%c[default] RU", game.translate_string("st_lootmoney_found_money"), game.translate_string(math.floor(calculated_money)))
+		player_char:give_game_news(news_caption, news_text, "ui_iconsTotal_found_money", 0, 10000)
 		--xr_sound.set_sound_play(player_char:id(), "pda_news")
-		if lootmoney_message then player_char:give_game_news(news_caption, news_text, "ui_iconsTotal_found_money", 0, 10000) end
-		player_char:give_money(dead_money)
-		--game_stats.money_quest_update(dead_money) 
-		npc:give_money(-npc_money)
-		--game_stats.money_quest_update(-npc_money)
-		if (math.random(1, 99) < lootmoney_stashchance and lootmoney_stash) then
-			coc_treasure_manager.create_random_stash(nil, npc_name .. "'s stash")
-		end
 	end
+	if (math.random(1, 99) < lootmoney_stashchance and lootmoney_stash) then -- spawn random stash
+		coc_treasure_manager.create_random_stash(nil, strformat("%s's stash", npc_name))
+	end
+	debug_sc(
+		strformat("You collected money from NPC. Chance: %s. Stalker: %c[66,167,245,0]%s%c[default]", rnd_value, npc_name)
+	)
 end
 
+-- called from xr_corpse_detection.script
 function lootmoney_effect(npc, corpse_npc) -- an npc is looting another npc or creature
 	if not lootmoney_npc_collect then return end -- if not npc collect enabled then end (npc wont collect money, only loot)
 
 	local npc_money = npc:money()
-	local npc_faction = npc:character_community()
 	local npc_name = npc:character_name()
 	local corpse_name = corpse_npc:character_name()
 	local corpse_money = corpse_npc:money()
-	local corpse_faction = corpse_npc:character_community()
 	local corpse_rank = ranks.get_obj_rank_name(corpse_npc)
 
 	set_npc_random_index(corpse_name) -- set npc random index for the dropchance system (based on the npc name do differ npcs)
 	local rnd_value = get_npc_random_index(corpse_name) or 0 -- get the random value from table using the npc table. mess
-	if rnd_value > lootmoney_dropchance then
+
+	if rnd_value > lootmoney_dropchance or corpse_money <= 0 or not corpse_rank then
 		corpse_npc:give_money(-corpse_money) -- makes corpse money equal 0 so it cant trigger lootmoney again
 		return
 	end -- if drop chance higher than random value between 1,99 exit
 
-	if --[[(corpse_faction ~= "monolith" and corpse_money < 100000) and]] corpse_money and corpse_money > 0 then
-		local dead_money = corpse_money
-		if not corpse_rank or dead_money <= 0 then return end
-		dead_money = get_random_money_from_rank(corpse_rank)
-		if lootmoney_getstalkermoney then
-			dead_money = corpse_money * lootmoney_multiplier
-		else
-			dead_money = dead_money * lootmoney_multiplier
-		end
-		debug_sc(
-			strformat("NPC is collecting money, NPC: = %c[66,167,245,0]%s%c[default] , Dead NPC: %c[66,167,245,0]%s%c[default] , Money found: %c[255,255,0,0]%s%c[default] RU.", npc_name, corpse_name, game.translate_string(math.floor(dead_money)))
-		) 
-		npc:give_money(dead_money) 
-		--game_stats.money_quest_update(dead_money) 
-		corpse_npc:give_money(-corpse_money) 
-		--game_stats.money_quest_update(-corpse_money) 
-	end
+	local calculated_money = get_random_money_from_corpse(corpse_npc)
+	npc:give_money(calculated_money) 
+	--game_stats.money_quest_update(calculated_money) 
+	corpse_npc:give_money(-corpse_money) 
+	--game_stats.money_quest_update(-corpse_money)
+	debug_sc(
+		strformat("NPC collected money, NPC: = %c[66,167,245,0]%s%c[default] , Dead NPC: %c[66,167,245,0]%s%c[default] , Money found: %c[255,255,0,0]%s%c[default] RU.", npc_name, corpse_name, game.translate_string(math.floor(calculated_money)))
+	) 
 end
 
 function debug_sc(text, icon) -- debug function
 	if not lootmoney_debug then return end
-	--db.actor:give_game_news("Outfit Marauder >> Debug Message", text, "", 0, 50000) -- debug message on screen
-	news_manager.send_tip(db.actor, "Loot Money >> Debug Message" .. "\\n" .. text, nil, "tourist", 10000)
-	alun_utils.printf(("Loot Money >> Debug Message" .. "\\n" .. text))
+	--db.actor:give_game_news("Loot Money >> Debug Message", text, "", 0, 50000) -- debug message on screen
+	local formatted_text = strformat("Loot Money >> Debug Message\\n%s", text)
+	news_manager.send_tip(db.actor, formatted_text, nil, "tourist", 10000)
+	alun_utils.printf(formatted_text)
 end
 
 function set_npc_random_index(npc)
@@ -168,5 +169,5 @@ function explode_config_minmax(rank, t)
 end
 
 function debug_vars() -- return config and extra vars as strings
-	return strformat( "Config: Dropchance: %s%, Money Multiplier: %sx, Get Stalker Money: %s, Stash: %s, Stash Chance: %s%, Message: %s, Npc Collect: %s", lootmoney_dropchance, lootmoney_multiplier, lootmoney_getstalkermoney, lootmoney_stash, lootmoney_stashchance, lootmoney_message, lootmoney_npc_collect )
+	return strformat("Config: Dropchance: %s%, Money Multiplier: %sx, Get Stalker Money: %s, Stash: %s, Stash Chance: %s%, Message: %s, Npc Collect: %s", lootmoney_dropchance, lootmoney_multiplier, lootmoney_getstalkermoney, lootmoney_stash, lootmoney_stashchance, lootmoney_message, lootmoney_npc_collect)
 end
